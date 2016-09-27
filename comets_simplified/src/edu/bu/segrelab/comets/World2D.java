@@ -4,6 +4,7 @@
 package edu.bu.segrelab.comets;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -100,6 +101,11 @@ public abstract class World2D implements CometsConstants
 	public int getNumRows()
 	{
 		return numRows;
+	}
+	
+	public int getNumModels()
+	{
+		return numModels;
 	}
 	
 	/**
@@ -207,7 +213,7 @@ public abstract class World2D implements CometsConstants
 			}
 		}
 		return biomass;
-	}
+	}	
 	
 	/**
 	 * Returns the entire 3D media matrix that this <code>World2D</code> is currently holding.

@@ -29,6 +29,9 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 
+import cern.jet.random.Binomial;
+import cern.jet.random.Poisson;
+import cern.jet.random.engine.DRand;
 import edu.bu.segrelab.comets.Cell;
 import edu.bu.segrelab.comets.Comets;
 import edu.bu.segrelab.comets.CometsConstants;
@@ -80,6 +83,8 @@ public class FBAWorld extends World2D
 	private Set<Circle> circleSet;
 
 	private double defaultDiffConst;
+
+	private DRand randomGenerator; //djordje
 	
 	/**
 	 * Initialize a new, empty world, tied the current <code>Comets</code> with a given
@@ -119,6 +124,7 @@ public class FBAWorld extends World2D
 		diffuseBiomassIn = new boolean[numCols][numRows][numModels];
 		diffuseBiomassOut = new boolean[numCols][numRows][numModels];
 		nutrientDiffConsts = new double[numMedia];
+		randomGenerator = new DRand(new java.util.Date()); // djordje
 		
 		/*
 		 * Initialize everything so that it can diffuse everywhere,
@@ -1053,7 +1059,7 @@ public class FBAWorld extends World2D
 
 	/**
 	 * Changes the level of media in space (x, y) as modified by the given model. The
-	 * mediaDelta array should hava only the media change calculated by that FBAModel,
+	 * mediaDelta array should have only the media change calculated by that FBAModel,
 	 * and not necessarily all medium components.
 	 * @param x
 	 * @param y
@@ -1341,8 +1347,9 @@ public class FBAWorld extends World2D
 			double[] deltaBiomass = cell.getDeltaBiomass(); // biomass produced this step
 			int x = cell.getX();
 			int y = cell.getY();
+						
 			for (int k=0; k<numModels; k++)
-			{
+			{	
 				if (deltaBiomass[k] > 0)
 				{
 					biomassGrowthState[k][x][y] = deltaBiomass[k];
@@ -1908,14 +1915,21 @@ public class FBAWorld extends World2D
 			// if (models == null)
 			// models = (FBAModel[])c.getModels();
 
+			// 1. perform mutations in world //DJORDJE
+			mutateWorld(); 			
+			
 			// 2. tell all the cells to run
 			List<Cell> deadCells = new ArrayList<Cell>();
 			//long t = System.currentTimeMillis();
+			
+			System.out.println("cells to run: " + c.getCells().size());
 			for (int i = 0; i < c.getCells().size(); i++)
 			{
-				// print("running cell " + i + "...");
-				Cell cell = (Cell) c.getCells().get(i);
+				// System.out.println("running cell " + i + "...");
+				Cell cell = (Cell) c.getCells().get(i);				
 				int alive = cell.run();
+	
+				//changeModelsInWorld(models, newModels);
 				if (alive == Cell.CELL_DEAD)
 					deadCells.add(cell);
 				// println(" done!");
@@ -3106,4 +3120,126 @@ public class FBAWorld extends World2D
 		if(numMedia == diffConsts.length)
 			this.nutrientDiffConsts = diffConsts;
 	}
+	
+	// DJORDJE MUTATE WORLD FUNCTION
+	
+	public void mutateWorld()
+	{
+		// this should go as arguments 
+		double mutRate = 1e-2; 
+		double cellBiomass = 1e-8;		
+
+		
+		// 1. get biomass for each model, for all cells
+		double[] totalBiomass = calculateTotalBiomass();
+		
+		
+		// 2. compute number of cells and number of mutations in each species 
+		int[] nCells = new int[totalBiomass.length];
+		int[] nMut = new int[totalBiomass.length];		
+		
+		ArrayList<Model> mutatedModels = new ArrayList<Model>();
+		ArrayList<Integer> ancestorModels = new ArrayList<Integer>();
+
+		
+		// 3. clone models and perform mutations, if any
+		for (int a=0; a<totalBiomass.length; a++)
+		{	
+			// discretize biomasses as individual cells 
+			nCells[a] = (int)Math.floor(totalBiomass[a]/cellBiomass); // 1e-8 should be set to biomass/cell
+			if (nCells[a]>0)
+			{
+				nMut[a] = samplePopulation(nCells[a], mutRate);
+
+				if (nMut[a]>0)
+				{					
+					for (int i=0; i<nMut[a]; i++)
+					{
+						FBAModel mutModel = models[a].clone();
+						mutModel.mutateModel();
+						mutatedModels.add(mutModel);
+						
+						ancestorModels.add(a);
+					}					
+				}
+			}
+		}			
+			
+		Integer[] ancestors = ancestorModels.toArray(new Integer[ancestorModels.size()]);
+			
+		System.out.println("INDS: " + Arrays.toString(nCells));
+		System.out.println("MUTS: " + Arrays.toString(nMut));
+		System.out.println("Ancestors: " + Arrays.toString(ancestors));
+
+		// 4. Decide in which cell are mutations happening (locateMutant), 
+		//    and make it happen. 
+		//    Update also other cells with biomass zero for mutant models
+		if (Utility.sum(nMut)>0)
+		{
+			// System.out.println(Arrays.deepToString(cellBiomasses)));
+			// System.out.println(cellBiomasses[1].length);
+			
+			for (int i = 0; i<ancestors.length; i++)
+			{			
+				// get ancestor biomasses
+				double[][] cellBiomasses = getBiomass(ancestors[i]);
+				System.out.println(Arrays.deepToString(cellBiomasses));				
+			}
+			
+			
+			
+			
+			for (Cell cell : c.getCells())
+			{
+				// System.out.println("running cell " + i + "...");
+				Cell cell = (Cell) c.getCells().get(i);				
+				
+				// println(" done!");
+			}
+		}
+		
+		// 5. update world 
+	}
+	
+	
+	// This function samples cells from a population (expressed as number of
+	// cells), given a probability.Internally, it uses binomial when cell
+	// numbers
+	// are small, and Poisson otherwise.
+	// needs import cern.jet.random.engine.*;
+	// needs import cern.jet.random.*;
+	public int samplePopulation(int population, double mutRate) 
+	{
+
+		double lambda = population * mutRate;
+		Poisson pois;
+		Binomial binom;
+		int nmut;
+
+		if (lambda > 10) {
+			pois = new Poisson(lambda, randomGenerator);
+			nmut = pois.nextInt();
+		} else {
+			binom = new Binomial(population, mutRate, randomGenerator);
+			nmut = binom.nextInt();
+		}
+
+		return nmut;
+	}
+	
+	// This samples from cells proportionally to their biomass, to decide where to 
+	// put a mutant 
+	/*public int[][] locateMutant(int whichSpecies)
+	{		
+		double[][] indMat= new double[numCols * numRows][2];
+		
+		for (int i = 0; i<indMat[1].length; i++)
+		{
+			
+		}
+		
+	}*/
+	
+
+
 }

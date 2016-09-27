@@ -1,11 +1,16 @@
 package edu.bu.segrelab.comets.fba;
-
-import edu.bu.segrelab.comets.Cell;
+/*import java.util.ArrayList; //djordje
+import java.util.*; //djordje
+import cern.jet.random.*; //djordje
+import cern.jet.random.engine.*; //djordje
+*/
+import edu.bu.segrelab.comets.Cell; 
 import edu.bu.segrelab.comets.CometsParameters;
 import edu.bu.segrelab.comets.Model;
 import edu.bu.segrelab.comets.World2D;
 import edu.bu.segrelab.comets.World3D;
 import edu.bu.segrelab.comets.util.Utility;
+
 
 /**
  * FBACell
@@ -29,7 +34,7 @@ public class FBACell extends edu.bu.segrelab.comets.Cell
 	private final int id;
 	private int cellColor;
 	private double[] biomass;
-	private double[] convectionRHS1; // kaka kaka kaka
+	private double[] convectionRHS1;
 	private double[] convectionRHS2;
 	private double[] deltaBiomass;
 	private double[][] fluxes;
@@ -550,6 +555,7 @@ public class FBACell extends edu.bu.segrelab.comets.Cell
 	 * FBACell, and CometsConstants.PARAMS_ERROR if the number of models passed doesn't match
 	 * the number of different species this FBACell is aware of. 
 	 */
+	
 	public synchronized int run(Model[] models)
 	{
 //		if (Comets.DIFFUSION_TEST_MODE)
@@ -557,10 +563,14 @@ public class FBACell extends edu.bu.segrelab.comets.Cell
 		deltaBiomass = new double[models.length];
 		
 		double rho = 1.0;
-		
 		// If we have multiple concurrent models in the cell, we want to update
 		// them all in random order.
 		int[] updateOrder = Utility.randomOrder(models.length);
+		// DJORDJE: (FBAModel)models[i]).getBaseExchLowerBounds()		
+		// System.out.println(Arrays.toString(biomass));
+
+		
+		
 		for (int a=0; a<updateOrder.length; a++)
 		{
 			// i = the current model index to run.
@@ -948,4 +958,113 @@ public class FBACell extends edu.bu.segrelab.comets.Cell
 		for (int i=0; i<newModels.length; i++)
 			fbaModels[i] = (FBAModel)newModels[i];
 	}
+
+	
+	// DJORDJE FROM HERE - TWO FUNCTIONS. SEE ABOVE ALSO import STATEMENTS
+	
+/*	public int mutate()
+	{
+		return mutate(fbaModels);
+	}
+	
+	//add delRate parameter, for now as local var.
+	public synchronized int mutate(Model[] models)
+	{		
+		int newGenotypes = 0;
+		double mutRate = 1e-1; 
+		double cellBiomass = 1e-8;
+
+		// .. compute number of cells and number of mutations in each species 
+		int[] nCells = new int[biomass.length];
+		int[] nMut = new int[biomass.length];
+		for (int a=0; a<biomass.length; a++)
+		{			
+			nCells[a] = (int)Math.round(biomass[a]/cellBiomass); // 1e-8 should be set to biomass/cell
+			if (nCells[a]>0)
+			{
+				
+			}
+		}
+		
+		System.out.println("[MUT?] number of individ/model: " + Arrays.toString(nCells));
+		System.out.println("[MUT?] number of mutants/model: " + Arrays.toString(nMut));
+		
+		// list, because it will grow but we don't know how much 
+
+		for (int a = 0; a < nMut.length; a++) {
+			// .. if mutation has happened, perform it
+			if (nMut[a] > 0) {
+				for (int i = 0; i < nMut[a]; i++) {
+					// get the bounds of the model
+					Model mutModel = models[a].clone();
+					double[] lBounds = ((FBAModel) models[a]).getBaseLowerBounds();
+					double[] uBounds = ((FBAModel) models[a]).getBaseUpperBounds();
+
+					// figure out which reactions have nonzero bounds
+					ArrayList<Integer> nonzeroRxns = new ArrayList<Integer>();
+					for (int j = 0; j < lBounds.length; j++) {
+						if (lBounds[j] != 0 || uBounds[j] != 0)
+							nonzeroRxns.add(j);
+					}
+					// select randomly one of these reactions
+					int delReaction = nonzeroRxns.get(new Random().nextInt(nonzeroRxns.size()));
+					System.out.println("[MUT] deleted reaction: " + delReaction);
+
+					// and update the mutModel model bounds
+					lBounds[delReaction] = 0;
+					uBounds[delReaction] = 0;
+					((FBAModel) mutModel).setBaseLowerBounds(lBounds);
+					((FBAModel) mutModel).setBaseUpperBounds(uBounds);
+					// add mutModel to the mutatedModels list
+					mutatedModels.add(mutModel);
+				}
+			}
+		}
+		
+		// If there has been any mutation, update the models of the world,
+		// and the biomasses of the cell
+		
+		if (mutatedModels.size() > models.length) {
+			
+			newGenotypes = mutatedModels.size() - models.length;
+			// back to array 
+			Model[] newModels = new Model[mutatedModels.size()];
+			newModels = mutatedModels.toArray(newModels);
+
+	
+			// new biomass vector for cell 		
+			double[] newBiomass = new double[newModels.length];
+			for (int i=0; i<newBiomass.length; i++)
+			{
+				if (i<models.length)
+					newBiomass[i] = biomass[i]-(nMut[i]*cellBiomass);
+				else 
+					newBiomass[i] = cellBiomass;
+			}
+
+			// update number of models in world 
+			changeModelsInCell(models, newModels); // works
+			setBiomass(newBiomass); 
+			//world.changeModelsInWorld(models, newModels);
+			
+			System.out.println("models biomass (fbaModels): " + Arrays.toString(biomass));
+			
+			
+			// System.out.println("models in cell (fbaModels): " + fbaModels.length);			
+			
+			// update world models
+			// world.changeModelsInWorld(models, newModels);
+			
+
+			// System.out.println("world number of models: " + world.getNumModels());
+			
+			//System.out.println("[MUT?] number of individ/model: " + Arrays.toString(nCells)); 
+			
+			world.changeModelsInWorld(models, newModels);
+		}
+		
+		return newGenotypes;
+	}
+*/
+	
 }

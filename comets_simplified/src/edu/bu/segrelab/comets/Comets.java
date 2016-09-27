@@ -785,6 +785,7 @@ public class Comets implements CometsConstants,
 				for (int i=0; i<models.length; i++)
 					newModels[i] = models[i];
 			}
+		
 			newModels[newModels.length-1] = model;
 			
 			//If there is a 3D world get rid of it

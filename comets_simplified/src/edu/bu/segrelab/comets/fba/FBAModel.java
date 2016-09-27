@@ -6,6 +6,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -20,6 +21,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 
+//import edu.bu.segrelab.comets.Model;
 import edu.bu.segrelab.comets.exception.ModelFileException;
 import edu.bu.segrelab.comets.ui.DoubleField;
 
@@ -2243,7 +2245,7 @@ public class FBAModel extends edu.bu.segrelab.comets.Model
 		 */
 		private int objRxnIndex,
 				    objStyle;
-		private JComboBox rxnNamesBox;
+		private JComboBox<?> rxnNamesBox;
 		private ButtonGroup fbaObjGroup;
 		private FBAModel model;
 		private JRadioButton maxObjButton, 
@@ -2276,7 +2278,7 @@ public class FBAModel extends edu.bu.segrelab.comets.Model
 			
 			objRxnIndex = model.getObjectiveIndex();
 			String[] rxns = model.getReactionNames();
-			rxnNamesBox = new JComboBox(rxns);
+			rxnNamesBox = new JComboBox<Object>(rxns);
 			rxnNamesBox.setSelectedIndex(objRxnIndex-1);
 			
 			objStyle = model.getObjectiveStyle();
@@ -2502,4 +2504,31 @@ public class FBAModel extends edu.bu.segrelab.comets.Model
 		active=act;
 	}
 
+	// DJORDJE 
+	public void mutateModel()
+	{		
+		double[] lBounds = getBaseLowerBounds();
+		double[] uBounds = getBaseUpperBounds();
+		
+		// figure out which reactions have nonzero bounds
+		ArrayList<Integer> nonzeroRxns = new ArrayList<Integer>();
+		for (int j = 0; j < lBounds.length; j++) {
+			if (lBounds[j] != 0 || uBounds[j] != 0)
+				nonzeroRxns.add(j);
+		}
+		
+		// select randomly one of these reactions
+		int mutReaction = nonzeroRxns.get(new Random().nextInt(nonzeroRxns.size()));
+		//System.out.println("mutated reaction: " + mutReaction);
+
+		// and update the mutModel model bounds
+		lBounds[mutReaction] = 0;
+		uBounds[mutReaction] = 0;
+		setBaseLowerBounds(lBounds);
+		setBaseUpperBounds(uBounds);		
+	}
+	
+	
+	
+	
 }
