@@ -29,7 +29,7 @@ public class FBACell extends edu.bu.segrelab.comets.Cell
 	private final int id;
 	private int cellColor;
 	private double[] biomass;
-	private double[] convectionRHS1;
+	private double[] convectionRHS1; // kaka kaka kaka
 	private double[] convectionRHS2;
 	private double[] deltaBiomass;
 	private double[][] fluxes;
@@ -142,7 +142,7 @@ public class FBACell extends edu.bu.segrelab.comets.Cell
 		this.cParams = cParams;
 		this.pParams = pParams;
 		this.biomass = new double[fbaModels.length];
-		setBiomass3D(biomass);
+		setBiomass3D(biomass);  
 		this.convectionRHS1=new double[biomass.length];
 		this.convectionRHS2=new double[biomass.length];
 		
